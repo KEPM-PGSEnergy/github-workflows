@@ -1,0 +1,54 @@
+name: Reusable Yocto Build
+
+on:
+  workflow_call:
+    inputs:
+      toolchain-release-tag:
+        description: 'The release tag from which to download the toolchain'
+        required: true
+        type: string
+      toolchain-filename:
+        description: 'The exact filename of the toolchain installer script'
+        required: true
+        type: string
+      toolchain-install-dir:
+        description: 'The destination directory for the toolchain installation'
+        required: true
+        type: string
+
+    secrets:
+      pat-token:
+        description: 'Personal Access Token to download the toolchain from a private repo'
+        required: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          submodules: 'recursive'
+
+      - name: Install base dependencies
+        run: sudo apt-get update && sudo apt-get install -y cmake
+
+      - name: Download Yocto SDK from dedicated repository
+        run: >
+          gh release download ${{ inputs.toolchain-release-tag }}
+          -p '${{ inputs.toolchain-filename }}'
+          --repo KEPM-PGSEnergy/github-workflows
+        env:
+          GITHUB_TOKEN: ${{ secrets.pat-token }}
+
+      - name: Install Yocto SDK
+        run: |
+          INSTALLER_SCRIPT="${{ inputs.toolchain-filename }}"
+          chmod +x "${INSTALLER_SCRIPT}"
+          sudo ./"${INSTALLER_SCRIPT}" -y -d ${{ inputs.toolchain-install-dir }}
+
+      - name: Configure CMake with Release Preset
+        run: cmake --preset release
+
+      - name: Build with Release Preset
+        run: cmake --build --preset release-build
