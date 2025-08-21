@@ -1,0 +1,51 @@
+name: Reusable Clang-Format Pull Request
+
+on:
+  workflow_call:
+    inputs:
+      find-exclude-args:
+        description: 'Multi-line string of "-not -path" arguments for the find command'
+        required: true
+        type: string
+
+    secrets:
+      pat-token:
+        description: 'Personal Access Token for creating a Pull Request'
+        required: true
+
+jobs:
+  formatting-pr:
+    name: Formatting Pull Request
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Install clang-format-20
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 20
+          sudo apt-get install -y clang-format-20
+          rm llvm.sh
+
+      - name: Apply clang-format changes
+        run: |
+          find . -regextype posix-extended -regex '.*\.(c|cpp|h|hpp)' \
+          ${{ inputs.find-exclude-args }} \
+          -exec clang-format-20 -i {} +
+
+      - name: Create Pull Request with changes
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.pat-token }}
+          commit-message: "style: Apply automatic clang-format changes"
+          title: "Automated Code Formatting Fixes"
+          body: >
+            This PR was automatically created by the clang-format workflow 
+            to apply code style changes. Please review and merge.
+          branch: "style-fixes/${{ github.ref_name }}"
+          base: "${{ github.ref_name }}"
+          labels: "automated-pr, style"
