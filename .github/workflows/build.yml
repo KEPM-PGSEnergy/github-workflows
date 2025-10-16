@@ -52,3 +52,9 @@ jobs:
 
       - name: Build with Release Preset
         run: cmake --build --preset release-build
+
+      - name: Upload LIN Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: LIN
+          path: build/release/LIN
