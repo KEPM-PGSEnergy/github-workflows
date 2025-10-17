@@ -16,14 +16,28 @@ on:
         required: true
         type: string
 
+      # Receives a JSON array of preset objects to build
+      build-presets-json:
+        description: 'A JSON array of preset objects to build'
+        required: true
+        type: string
+
     secrets:
       pat-token:
-        description: 'Personal Access Token to download the toolchain from a private repo'
+        description: 'Personal Access Token to download the toolchain'
         required: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
+    # Runs a job for each item in the 'build-presets-json' input
+    strategy:
+      fail-fast: false
+      matrix:
+        # e.g., { "name": "tx", "artifact_name": "LIN_TX", "artifact_path": "build/release/LIN_TX" }
+        preset: ${{ fromJson(inputs.build-presets-json) }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -33,7 +47,7 @@ jobs:
       - name: Install base dependencies
         run: sudo apt-get update && sudo apt-get install -y cmake
 
-      - name: Download Yocto SDK from dedicated repository
+      - name: Download Yocto SDK
         run: >
           gh release download ${{ inputs.toolchain-release-tag }}
           -p '${{ inputs.toolchain-filename }}'
@@ -47,14 +61,14 @@ jobs:
           chmod +x "${INSTALLER_SCRIPT}"
           sudo ./"${INSTALLER_SCRIPT}" -y -d ${{ inputs.toolchain-install-dir }}
 
-      - name: Configure CMake with Release Preset
-        run: cmake --preset release
+      - name: Configure CMake
+        run: cmake --preset ${{ matrix.preset.name }}
 
-      - name: Build with Release Preset
-        run: cmake --build --preset release-build
+      - name: Build
+        run: cmake --build --preset ${{ matrix.preset.name }}
 
-      - name: Upload LIN Artifact
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: LIN
-          path: build/release/LIN
+          name: ${{ matrix.preset.artifact_name }}
+          path: ${{ matrix.preset.artifact_path }}
