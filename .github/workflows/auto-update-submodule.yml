@@ -1,0 +1,47 @@
+name: Reusable Auto Update Submodule
+
+on:
+  workflow_call:
+    inputs:
+      submodules-json:
+        description: 'A JSON array of submodule names to update, e.g. ["erpc", "libiec61850", "mbedtls"]'
+        required: true
+        type: string
+
+    secrets:
+      pat-token:
+        description: 'Personal Access Token for pushing changes'
+        required: true
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        submodule: ${{ fromJson(inputs.submodules-json) }}
+
+    steps:
+      - name: Checkout parent
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 0
+          token: ${{ secrets.pat-token }}
+
+      - name: Update ${{ matrix.submodule }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git submodule update --init --remote ${{ matrix.submodule }}
+
+      - name: Commit and Push
+        run: |
+          git add ${{ matrix.submodule }}
+          if git diff-index --quiet HEAD; then
+            echo "No changes to commit"
+          else
+            git commit -m "auto: update submodule ${{ matrix.submodule }}"
+            git pull --rebase origin main
+            git push origin main
+          fi
