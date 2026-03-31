@@ -1,0 +1,29 @@
+name: Reusable Notify Parent Submodules
+
+on:
+  workflow_call:
+    inputs:
+      parent-repos-json:
+        description: 'A JSON array of parent repository names, e.g. ["KEPM-PGSEnergy/lin_apk_tx_rx"]'
+        required: true
+        type: string
+
+    secrets:
+      pat-token:
+        description: 'Personal Access Token for repository dispatch'
+        required: true
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        repo: ${{ fromJson(inputs.parent-repos-json) }}
+
+    steps:
+      - name: Repository Dispatch
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.pat-token }}
+          repository: ${{ matrix.repo }}
+          event-type: update_submodule_event
