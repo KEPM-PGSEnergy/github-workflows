@@ -51,7 +51,7 @@ jobs:
         run: >
           gh release download ${{ inputs.toolchain-release-tag }}
           -p '${{ inputs.toolchain-filename }}'
-          --repo KEPM-PGSEnergy/github-workflows
+          --repo KEPM-PGSEnergy/orion-bsp
         env:
           GITHUB_TOKEN: ${{ secrets.pat-token }}
 
