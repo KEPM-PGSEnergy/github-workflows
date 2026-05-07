@@ -4,25 +4,35 @@ on:
   workflow_call:
     inputs:
       enable:
-        description: 'Comma-separated list of cppcheck checks to enable (e.g. "warning,style,performance,portability")'
+        description: 'Cppcheck checks to enable (e.g. "all", "warning,style,performance,portability")'
         required: false
         type: string
-        default: ''
+        default: 'all'
+      std:
+        description: 'C/C++ standard (e.g. "c99", "c++17", "c++20")'
+        required: false
+        type: string
+        default: 'c++20'
+      platform:
+        description: 'Cppcheck platform (e.g. "native", "avr8", "arm32-wchar4"). Pass "disable" to skip.'
+        required: false
+        type: string
+        default: 'disable'
       exclude-check:
-        description: 'Comma-separated list of cppcheck checks to exclude'
+        description: 'Source file or directory to exclude (-i flag). Pass "disable" to skip.'
         required: false
         type: string
-        default: ''
+        default: 'disable'
       other-options:
-        description: 'Additional flags passed verbatim to cppcheck (e.g. "--std=c99 -DSTM32F767xx")'
+        description: 'Additional cppcheck flags. Pass "disable" to skip.'
         required: false
         type: string
-        default: ''
+        default: 'disable'
       inline-suppression:
         description: 'Enable inline cppcheck suppression comments'
         required: false
         type: boolean
-        default: true
+        default: false
 
 jobs:
   cppcheck:
@@ -40,9 +50,11 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           enable: ${{ inputs.enable }}
+          std: ${{ inputs.std }}
+          platform: ${{ inputs.platform }}
           exclude_check: ${{ inputs.exclude-check }}
           other_options: ${{ inputs.other-options }}
-          inline_suppression: ${{ inputs.inline-suppression && 'true' || 'false' }}
+          inline_suppression: ${{ inputs.inline-suppression && 'enable' || 'disable' }}
 
       - name: Upload report as artifact
         uses: actions/upload-artifact@v4
