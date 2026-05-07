@@ -1,0 +1,91 @@
+name: Reusable Doxygen Pages
+
+on:
+  workflow_call:
+    inputs:
+      doxyfile:
+        description: 'Path to the Doxyfile (relative to repo root)'
+        required: false
+        type: string
+        default: 'Doxyfile'
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    name: Build Doxygen documentation
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Install Doxygen and Graphviz
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y doxygen graphviz
+
+      - name: Generate documentation
+        run: |
+          doxygen "${{ inputs.doxyfile }}"
+          echo "Generated files:"
+          ls -R docs || ls -R html
+
+      - name: Upload documentation artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: doxygen-docs
+          path: |
+            docs/html
+            html
+
+  deploy:
+    name: Prepare Pages artifact
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Download documentation artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: doxygen-docs
+          path: ./temp
+
+      - name: Adjust folder structure
+        run: |
+          echo "Contents before move:"
+          ls -R ./temp
+          if [ -d "./temp/docs/html" ]; then
+            mv ./temp/docs/html ./site
+          elif [ -d "./temp/html" ]; then
+            mv ./temp/html ./site
+          else
+            echo "Error: HTML directory not found"
+            exit 1
+          fi
+          echo "Contents after move:"
+          ls -R ./site
+
+      - name: Upload to GitHub Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./site
+
+  deploy-pages:
+    name: Publish to GitHub Pages
+    runs-on: ubuntu-latest
+    needs: deploy
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

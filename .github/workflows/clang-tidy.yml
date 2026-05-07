@@ -1,0 +1,83 @@
+name: Reusable Clang-Tidy Review
+
+on:
+  workflow_call:
+    inputs:
+      toolchain-release-tag:
+        description: 'The release tag from which to download the toolchain'
+        required: true
+        type: string
+      toolchain-filename:
+        description: 'The exact filename of the toolchain installer script'
+        required: true
+        type: string
+      toolchain-install-dir:
+        description: 'The destination directory for the toolchain installation'
+        required: true
+        type: string
+      toolchain-repo:
+        description: 'The repository hosting the toolchain release asset'
+        required: false
+        type: string
+        default: 'KEPM-PGSEnergy/orion-bsp'
+      build-dir:
+        description: 'CMake build directory used to emit compile_commands.json'
+        required: false
+        type: string
+        default: 'build/release'
+      exclude:
+        description: 'Comma-separated list of paths to exclude from clang-tidy review'
+        required: true
+        type: string
+      clang-tidy-version:
+        description: 'clang-tidy major version to invoke'
+        required: false
+        type: string
+        default: '16'
+
+    secrets:
+      pat-token:
+        description: 'Personal Access Token to download the toolchain'
+        required: true
+
+jobs:
+  clang-tidy:
+    name: Clang-Tidy Review
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+
+      - name: Download Yocto SDK
+        env:
+          GITHUB_TOKEN: ${{ secrets.pat-token }}
+        run: >
+          gh release download ${{ inputs.toolchain-release-tag }}
+          -p '${{ inputs.toolchain-filename }}'
+          --repo ${{ inputs.toolchain-repo }}
+
+      - name: Install Yocto SDK
+        run: |
+          INSTALLER_SCRIPT="${{ inputs.toolchain-filename }}"
+          chmod +x "${INSTALLER_SCRIPT}"
+          sudo ./"${INSTALLER_SCRIPT}" -y -d "${{ inputs.toolchain-install-dir }}"
+
+      - name: Generate compile_commands.json
+        run: |
+          source ${{ inputs.toolchain-install-dir }}/environment-setup-*
+          cmake -S . -B ${{ inputs.build-dir }} -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_BUILD_TYPE=Release
+
+      - name: Run Clang-Tidy Review
+        uses: ZedThree/clang-tidy-review@v0.20.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          build_dir: ${{ inputs.build-dir }}
+          config_file: .clang-tidy
+          clang_tidy_version: ${{ inputs.clang-tidy-version }}
+          exclude: ${{ inputs.exclude }}
