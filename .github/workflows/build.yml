@@ -30,6 +30,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     # Runs a job for each item in the 'build-presets-json' input
     strategy:
